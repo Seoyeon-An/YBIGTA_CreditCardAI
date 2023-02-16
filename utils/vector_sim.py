@@ -1,88 +1,73 @@
 import math
+import numpy as np
 import torch
+import torch.nn.functional as F
+
+class TS_SS:
+    def __init__(self, device: torch.device):
+        self.device = device
+
+    def Cosine(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        m = torch.matmul(vec1, vec2.T)/(torch.linalg.norm(vec1))
+        dig = torch.diagonal(m, 0)
+        norm = torch.linalg.norm(vec2)
+        # print(f"DIG: {dig}")
+        # print(f"NORM: {norm}")
+        result = dig * norm
+        return result
+
+    def VectorSize(self, vec: torch.Tensor):
+        return torch.linalg.norm(vec, dim=-1) # (10, 1)?
+
+    def Euclidean(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        return torch.linalg.norm(vec1-vec2)
+
+    def Theta(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        arc = torch.acos(F.cosine_similarity(vec1, vec2))
+        # print(f"ARC: {arc}")
+        deg = torch.deg2rad(torch.tensor([10]).to(self.device))
+        return arc + deg
+
+    def Triangle(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        # intput: (10, 30)
+        # output: (10, 1)
+        t = self.Theta(vec1, vec2)
+        # print(f"theta: {t}")
+        theta = torch.deg2rad(self.Theta(vec1, vec2))
+        # print(f"Theta: {theta.size()}")
+        # vec1_size = self.VectorSize(vec1)
+        # print(f'vec1_size: {vec1_size.size()}')
+        # result = (self.VectorSize(vec1) * self.VectorSize(vec2) * torch.sin(theta))/2
+        # print(f"Result size: {result.size()}")
+        return (self.VectorSize(vec1) * self.VectorSize(vec2) * torch.sin(theta))/2
+
+    def Magnitude_Difference(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        return abs(self.VectorSize(vec1) - self.VectorSize(vec2))
+
+    def Sector(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        ED = self.Euclidean(vec1, vec2)
+        MD = self.Magnitude_Difference(vec1, vec2)
+        theta = self.Theta(vec1, vec2)
+        return math.pi * (ED + MD)**2 * theta/360
 
 
-def cos_sim(v):
-    v_inner = inner_product(v)
-    v_size = vec_size(v)
-    v_cos = v_inner / torch.mm(v_size, v_size.t())
-    return v_cos
+    def __call__(self, vec1: torch.Tensor, vec2: torch.Tensor):
+        # tri = self.Triangle(vec1, vec2)
+        # sec = self.Sector(vec1, vec2)
+        # print(f"Triangle: {tri}")
+        # print(f"Sector: {sec}")
 
+        # print(f"Tri size: {tri.size()}")
+        # print(f"Sec size: {sec.size()}")
+        return self.Triangle(vec1, vec2) * self.Sector(vec1, vec2)
 
-def vec_size(v):
-    return v.norm(dim=-1, keepdim=True)
+if __name__ == '__main__':
+    # Usage
+    v1 = torch.rand(10, 30)
+    v2 = torch.rand(10, 30)
+    similarity = TS_SS('cpu')
+    sim = similarity(v1,v2)
+    print(f"Sim size: {sim.size()}")
 
-
-def inner_product(v):
-    return torch.mm(v, v.t())
-
-
-def euclidean_dist(v, eps=1e-10):
-    v_norm = (v**2).sum(-1, keepdim=True)
-    dist = v_norm + v_norm.t() - 2.0 * torch.mm(v, v.t())
-    dist = torch.sqrt(torch.abs(dist) + eps)
-    return dist
-
-
-def theta(v, eps=1e-5):
-    v_cos = cos_sim(v).clamp(-1.0 + eps, 1.0 - eps)
-    x = torch.acos(v_cos) + math.radians(10)
-    return x
-
-
-def triangle(v):
-    theta_ = theta(v)
-    theta_rad = theta_ * math.pi / 180.0
-    vs = vec_size(v)
-    x = (vs.mm(vs.t())) * torch.sin(theta_rad)
-    return x / 2.0
-
-
-def magnitude_dif(v):
-    vs = vec_size(v)
-    return (vs - vs.t()).abs()
-
-
-def sector(v):
-    ed = euclidean_dist(v)
-    md = magnitude_dif(v)
-    sec = math.pi * torch.pow((ed + md), 2) * theta(v) / 360.0
-    return sec
-
-
-def ts_ss(v):
-    tri = triangle(v)
-    sec = sector(v)
-    return tri * sec
-
-
-def ts_ss_(v, eps=1e-15, eps2=1e-4):
-    # reusable compute
-    v_inner = torch.mm(v, v.t())
-    vs = v.norm(dim=-1, keepdim=True)
-    vs_dot = vs.mm(vs.t())
-
-    # compute triangle(v)
-    v_cos = v_inner / vs_dot
-    v_cos = v_cos.clamp(-1.0 + eps2, 1.0 - eps2)  # clamp to avoid backprop instability
-    theta_ = torch.acos(v_cos) + math.radians(10)
-    theta_rad = theta_ * math.pi / 180.0
-    tri = (vs_dot * torch.sin(theta_rad)) / 2.0
-
-    # compute sector(v)
-    v_norm = (v**2).sum(-1, keepdim=True)
-    euc_dist = v_norm + v_norm.t() - 2.0 * v_inner
-    euc_dist = torch.sqrt(torch.abs(euc_dist) + eps)  # add epsilon to avoid srt(0.)
-    magnitude_diff = (vs - vs.t()).abs()
-    sec = math.pi * (euc_dist + magnitude_diff) ** 2 * theta_ / 360.0
-
-    return tri * sec
-
-
-vec1 = [1, 2]
-vec2 = [2, 4]
-v = torch.tensor([vec1, vec2])
-
-print(euclidean_dist(v))
-print(cos_sim(v))
-print(ts_ss_(v))
+    # to convert to tensor
+    
