@@ -40,6 +40,9 @@
 
 ## 하이퍼파라미터 - randomizedsearchcv 이용 (iteration = 20, cv = 5)
 
+- sklearn.covariance.EllipticEnvelope 공식문서
+  - ![스크린샷 2023-02-17 오후 10.11.23](/Users/jeonghwan/Desktop/스크린샷 2023-02-17 오후 10.11.23.png)
+
 * contamination: EllipticEnvelope의 이상치 비율을 설정하는 매개변수, 예를 들어 'contamination'이 0.01이면 데이터의 1%가 이상치로 간주된다.
 
 - support_fraction: 분산 추정에 사용되는 포인트의 비율을 설정하는 매개변수, EllipticEnvelope은 이상치를 분류하기 위해 포인트 간의 분산을 추정하는데, 'support_fraction' 값이 작을수록 추정된 분산은 더 큰 영역을 포함하게 되며, 이는 더 많은 포인트를 이상치로 분류할 가능성이 높아지는 것이다.
